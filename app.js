@@ -61,9 +61,16 @@
       frame.hidden = false;
       var iframe = document.createElement('iframe');
       iframe.allow = 'autoplay; encrypted-media';
+      // Starts muted (always allowed), then applySound() turns the sound on through the player API.
       iframe.src = 'https://www.youtube-nocookie.com/embed/' + yt +
         '?autoplay=1&mute=1&controls=0&loop=1&playlist=' + yt +
-        '&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1';
+        '&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&enablejsapi=1';
+      iframe.addEventListener('load', function () {
+        // The player takes a moment to accept commands after the frame loads.
+        [0, 400, 1200, 2500].forEach(function (ms) {
+          setTimeout(function () { if (iframe.isConnected) applySound(); }, ms);
+        });
+      });
       frame.appendChild(iframe);
       document.body.classList.add('trailer-on');
     } else {
@@ -71,11 +78,62 @@
       video.hidden = false;
       video.src = game.trailer;
       video.currentTime = 0;
+      video.muted = !(soundOn && unlocked);
       var p = video.play();
-      if (p && p.catch) p.catch(function () {});
+      if (p && p.catch) p.catch(function () {
+        // The browser refused to start with sound: play silently instead.
+        video.muted = true;
+        var q = video.play();
+        if (q && q.catch) q.catch(function () {});
+      });
       document.body.classList.add('trailer-on');
     }
+    updateSoundUi();
   }
+
+  // ---------- Sound ----------
+  // Browsers only allow sound after the visitor has clicked or pressed a key on the page,
+  // so trailers play silently until that first interaction.
+  var soundBtn = document.getElementById('soundBtn');
+  var soundHint = document.getElementById('soundHint');
+  var soundOn = true;
+  var unlocked = false;
+  try { soundOn = localStorage.getItem('gmm-sound') !== 'off'; } catch (e) {}
+
+  function ytCommand(func, args) {
+    var iframe = frame.querySelector('iframe');
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: func, args: args || [] }), '*');
+  }
+
+  function applySound() {
+    var audible = soundOn && unlocked;
+    video.muted = !audible;
+    if (audible) { ytCommand('unMute'); ytCommand('setVolume', [100]); }
+    else ytCommand('mute');
+    updateSoundUi();
+  }
+
+  function updateSoundUi() {
+    soundBtn.textContent = soundOn ? '🔊 Sound on' : '🔇 Sound off';
+    soundBtn.setAttribute('aria-pressed', String(soundOn));
+    soundHint.hidden = !(soundOn && !unlocked);
+  }
+
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    applySound();
+  }
+  document.addEventListener('pointerdown', unlock, true);
+  document.addEventListener('keydown', unlock, true);
+
+  soundBtn.addEventListener('click', function () {
+    soundOn = !soundOn;
+    try { localStorage.setItem('gmm-sound', soundOn ? 'on' : 'off'); } catch (e) {}
+    unlocked = true;
+    applySound();
+  });
 
   function stopNow() {
     clearTimeout(hideTimer);
@@ -217,6 +275,47 @@
   document.addEventListener('click', function () { if (touchMode) stopTrailer(); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) stopTrailer(); });
 
+  // ---------- Branding (logo + colours from settings.js) ----------
+  function hexToRgb(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return null;
+    var n = parseInt(m[1], 16);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255];
+  }
+  function luminance(rgb) { return (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255; }
+
+  function applyBranding() {
+    var site = window.SITE && typeof window.SITE === 'object' ? window.SITE : {};
+    var root = document.documentElement.style;
+    var bg = hexToRgb(site.bg);
+    var accent = hexToRgb(site.accent);
+    if (bg) {
+      root.setProperty('--bg', site.bg);
+      // Pick readable text for a dark or a light background.
+      root.setProperty('--text', luminance(bg) > 0.55 ? '#14161d' : '#f4f1e8');
+    }
+    if (accent) {
+      root.setProperty('--accent', site.accent);
+      root.setProperty('--accent-ink', luminance(accent) > 0.55 ? '#14161d' : '#ffffff');
+    }
+    // Optional second accent: the end colour of the brand gradient.
+    if (hexToRgb(site.accent2)) root.setProperty('--accent2', site.accent2);
+    if (site.logo) {
+      var mark = document.getElementById('mark');
+      var img = el('img', 'logo');
+      img.src = site.logo;
+      img.alt = 'Game Makers Myanmar';
+      img.onload = function () { mark.replaceWith(img); };
+      var icon = document.createElement('link');
+      icon.rel = 'icon';
+      icon.href = site.logo;
+      document.head.appendChild(icon);
+    }
+    if (site.showTitle === false && site.logo) document.getElementById('siteTitle').hidden = true;
+  }
+
+  applyBranding();
+  updateSoundUi();
   renderFilters();
   render();
 })();

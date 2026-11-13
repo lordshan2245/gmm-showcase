@@ -1,14 +1,26 @@
+/* --bg, --text, --accent and --accent-ink are overridden from Site settings (settings.js).
+   Everything else is derived from them, so the whole page follows the brand colours. */
 :root {
   --bg: #0a0c13;
-  --panel: #151a28;
-  --line: rgba(255, 255, 255, .09);
   --text: #f4f1e8;
-  --muted: #9aa1b5;
   --accent: #ffb627;
+  --accent2: var(--accent);
   --accent-ink: #1a1200;
   --pc: #6ea8ff;
   --mobile: #5fd39a;
   --web: #ff8f6b;
+}
+
+body {
+  --line: color-mix(in srgb, var(--text) 11%, transparent);
+  --muted: color-mix(in srgb, var(--text) 62%, var(--bg));
+  --card: color-mix(in srgb, color-mix(in srgb, var(--bg) 91%, var(--text)) 78%, transparent);
+}
+
+/* Over a playing trailer the page is always dark, whatever the theme. */
+body.trailer-on {
+  --bg: #0a0c13;
+  --text: #f4f1e8;
 }
 
 * { box-sizing: border-box; }
@@ -18,8 +30,8 @@ html, body { margin: 0; }
 body {
   min-height: 100vh;
   background:
-    radial-gradient(900px 500px at 85% -10%, rgba(255, 182, 39, .13), transparent 60%),
-    radial-gradient(700px 500px at -10% 30%, rgba(80, 110, 255, .12), transparent 60%),
+    radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
+    radial-gradient(700px 500px at -10% 30%, color-mix(in srgb, var(--accent2) 10%, transparent), transparent 60%),
     var(--bg);
   background-attachment: fixed;
   color: var(--text);
@@ -88,13 +100,35 @@ body.trailer-on .bg { opacity: 1; }
   width: 54px;
   height: 54px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #ffcf5c, #ff9d1b);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 75%, #fff), var(--accent2));
   color: var(--accent-ink);
   font-weight: 900;
   font-size: 15px;
   letter-spacing: .5px;
-  box-shadow: 0 8px 24px rgba(255, 170, 30, .3);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 30%, transparent);
 }
+
+.logo { display: block; border-radius: 14px; height: 58px; width: auto; max-width: min(240px, 45vw); object-fit: contain; }
+
+.sound {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2;
+  appearance: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  border: 1px solid var(--line);
+  padding: 9px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+.sound:hover { border-color: var(--accent); }
+.sound[aria-pressed="false"] { color: var(--muted); }
+.now em { font-style: normal; text-transform: none; letter-spacing: 0; white-space: nowrap; }
 
 .brand h1 { margin: 0; font-size: clamp(20px, 2.6vw, 28px); letter-spacing: -.2px; }
 .brand p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
@@ -104,7 +138,7 @@ body.trailer-on .bg { opacity: 1; }
 .chip {
   appearance: none;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, .05);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
   color: var(--text);
   font: inherit;
   font-size: 14px;
@@ -113,10 +147,10 @@ body.trailer-on .bg { opacity: 1; }
   cursor: pointer;
   transition: background .15s, border-color .15s, color .15s;
 }
-.chip:hover { border-color: rgba(255, 255, 255, .3); }
+.chip:hover { border-color: color-mix(in srgb, var(--text) 35%, transparent); }
 .chip[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-color: transparent;
   color: var(--accent-ink);
   font-weight: 700;
 }
@@ -139,7 +173,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 24px 24px 96px; }
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 22px;
-  background: rgba(21, 26, 40, .72);
+  background: var(--card);
   backdrop-filter: blur(8px);
   transition: opacity .3s ease, transform .2s ease, border-color .2s ease, background .3s ease;
 }
@@ -206,7 +240,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 24px 24px 96px; }
   padding: 3px 8px;
   border-radius: 6px;
   border: 1px solid currentColor;
-  background: rgba(0, 0, 0, .25);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
 }
 .tags { margin-top: auto; }
 .tags li { display: flex; }
@@ -222,9 +256,9 @@ a.tag.link:hover, a.tag.link:focus-visible { transform: translateY(-1px); color:
 a.tag.link.pc:hover, a.tag.link.pc:focus-visible { background: var(--pc); border-color: var(--pc); }
 a.tag.link.mobile:hover, a.tag.link.mobile:focus-visible { background: var(--mobile); border-color: var(--mobile); }
 a.tag.link.web:hover, a.tag.link.web:focus-visible { background: var(--web); border-color: var(--web); }
-.tag.pc { color: var(--pc); }
-.tag.mobile { color: var(--mobile); }
-.tag.web { color: var(--web); }
+.tag.pc { color: color-mix(in srgb, var(--pc) 72%, var(--text)); }
+.tag.mobile { color: color-mix(in srgb, var(--mobile) 72%, var(--text)); }
+.tag.web { color: color-mix(in srgb, var(--web) 72%, var(--text)); }
 
 .genre {
   margin: -6px 0 0;
@@ -259,7 +293,7 @@ a.tag.link.web:hover, a.tag.link.web:focus-visible { background: var(--web); bor
 
 /* While a trailer plays, the other cards step back so the video shows through. */
 body.trailer-on .card:not(.active) { opacity: .28; }
-body.trailer-on .card.active { background: rgba(10, 12, 19, .55); border-color: rgba(255, 182, 39, .5); }
+body.trailer-on .card.active { background: rgba(10, 12, 19, .55); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 
 .empty { color: var(--muted); text-align: center; padding: 80px 0; font-size: 16px; }
 
