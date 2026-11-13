@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Makers Myanmar — Booth Showcase</title>
+<meta name="description" content="Games made in Myanmar, playable at the Game Makers Myanmar booth.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Trailer background -->
+<div class="bg" aria-hidden="true">
+  <video id="bgVideo" muted loop playsinline preload="none"></video>
+  <div id="bgFrame"></div>
+  <div class="bg-shade"></div>
+</div>
+
+<header class="top">
+  <div class="brand">
+    <div class="mark">GMM</div>
+    <div>
+      <h1>Game Makers Myanmar</h1>
+      <p>Booth Showcase · hover a game to watch its trailer</p>
+    </div>
+  </div>
+  <nav class="filters" id="filters" aria-label="Filter by platform"></nav>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+  <p class="empty" id="empty" hidden>No games to show yet.</p>
+</main>
+
+<div class="now" id="now" aria-live="polite"><span class="dot"></span><span>Trailer</span><strong id="nowName"></strong></div>
+
+<script src="games.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
