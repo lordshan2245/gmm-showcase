@@ -314,8 +314,22 @@
     if (site.showTitle === false && site.logo) document.getElementById('siteTitle').hidden = true;
   }
 
-  applyBranding();
-  updateSoundUi();
-  renderFilters();
-  render();
+  function boot() {
+    games = Array.isArray(window.GAMES) ? window.GAMES : [];
+    applyBranding();
+    updateSoundUi();
+    renderFilters();
+    render();
+  }
+
+  // With the online database configured, cloud.js loads the games and fires "gmm-data".
+  // If it takes too long (offline, blocked), fall back to the games saved with the site.
+  if (window.FIREBASE_CONFIG) {
+    var booted = false;
+    var once = function () { if (!booted) { booted = true; boot(); } };
+    window.addEventListener('gmm-data', once);
+    setTimeout(once, 7000);
+  } else {
+    boot();
+  }
 })();

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Admin — Game Makers Myanmar Showcase</title>
+<link rel="stylesheet" href="admin.css">
+<style>
+  .gate { max-width: 420px; margin: 12vh auto 0; padding: 32px 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; text-align: center; }
+  .gate h1 { margin: 0 0 6px; font-size: 22px; }
+  .gate p { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+  .gate .primary { width: 100%; justify-content: center; padding: 12px; font-size: 15px; }
+  .gate .msg { margin-top: 16px; font-size: 14px; color: var(--danger); min-height: 20px; overflow-wrap: anywhere; }
+  .who { color: var(--muted); font-size: 13px; }
+  .admin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; background: #0f1320; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; overflow-wrap: anywhere; }
+  .admin-list { display: flex; flex-direction: column; gap: 8px; }
+  .add-admin { display: flex; gap: 8px; }
+  .add-admin input { flex: 1; font: inherit; font-size: 15px; color: var(--text); background: #0f1320; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Sign-in gate -->
+<div class="gate" id="gate">
+  <h1>Showcase Admin</h1>
+  <p>Game Makers Myanmar booth showcase</p>
+  <button class="primary" id="signIn" type="button" disabled>Sign in with Google</button>
+  <button id="gateSignOut" type="button" hidden style="margin-top:10px;width:100%;justify-content:center">Use a different account</button>
+  <div class="msg" id="gateMsg">Loading…</div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <header>
+    <div>
+      <h1>Showcase Admin</h1>
+      <p>Game Makers Myanmar booth · <span id="count">0</span> games</p>
+      <p class="who">Signed in as <span id="who"></span></p>
+    </div>
+    <div class="actions">
+      <button id="adminsBtn" type="button">Admins</button>
+      <button id="siteBtn" type="button">Logo &amp; colours</button>
+      <a class="btn" href="../" target="_blank">View showcase ↗</a>
+      <button id="signOut" type="button">Sign out</button>
+      <button class="primary" id="addBtn" type="button">+ Add game</button>
+    </div>
+  </header>
+
+  <div class="banner" id="importBox" hidden>
+    The online database has no games yet.
+    <button class="small" id="importBtn" type="button" style="margin-left:8px">Import the games currently on the site</button>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <footer>
+    <span>Changes appear on the live showcase straight away. Games are shown in the order listed here.</span>
+  </footer>
+</div>
+
+<!-- Game form -->
+<dialog id="dlg">
+  <form id="form" novalidate>
+    <h2 id="formTitle">Add game</h2>
+
+    <label class="field">Game name
+      <input type="text" id="fName" maxlength="80" required autocomplete="off">
+    </label>
+
+    <label class="field">Genre
+      <input type="text" id="fGenre" maxlength="40" list="genres" placeholder="e.g. Action, Puzzle, RPG" autocomplete="off">
+      <datalist id="genres">
+        <option>Action</option><option>Adventure</option><option>RPG</option><option>Puzzle</option>
+        <option>Casual</option><option>Strategy</option><option>Simulation</option><option>Racing</option>
+        <option>Sports</option><option>Shooter</option><option>Platformer</option><option>Horror</option>
+        <option>Card &amp; Board</option><option>Educational</option>
+      </datalist>
+    </label>
+
+    <fieldset>
+      <legend>Platforms and playable links (tick each platform the game is on; the link is optional)</legend>
+      <div class="plats">
+        <div class="plat"><label class="check"><input type="checkbox" value="PC"> PC</label>
+          <input type="url" data-link="PC" placeholder="https://…  PC download (itch.io, Steam)" autocomplete="off"></div>
+        <div class="plat"><label class="check"><input type="checkbox" value="Mobile"> Mobile</label>
+          <input type="url" data-link="Mobile" placeholder="https://…  Play Store / App Store" autocomplete="off"></div>
+        <div class="plat"><label class="check"><input type="checkbox" value="Web"> Web</label>
+          <input type="url" data-link="Web" placeholder="https://…  play in browser" autocomplete="off"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Game icon</legend>
+      <div class="media">
+        <div class="preview" id="iconPreview">No icon</div>
+        <div class="controls">
+          <div class="line">
+            <button type="button" class="small" id="iconPick">Choose image…</button>
+            <button type="button" class="small danger" id="iconClear">Remove</button>
+            <input type="file" id="iconFile" accept="image/*" hidden>
+          </div>
+          <div class="hint">Any square image. It is resized automatically.</div>
+        </div>
+      </div>
+    </fieldset>
+
+    <label class="field">Trailer (YouTube link — plays in the background on hover)
+      <input type="url" id="fTrailer" placeholder="https://youtu.be/…" autocomplete="off">
+    </label>
+
+    <div class="err" id="formErr" hidden></div>
+    <div class="form-actions">
+      <span class="progress" id="progress"></span>
+      <button type="button" id="cancelBtn">Cancel</button>
+      <button type="submit" class="primary" id="saveBtn">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Logo & colours -->
+<dialog id="siteDlg">
+  <form id="siteForm" novalidate>
+    <h2>Logo &amp; colours</h2>
+    <fieldset>
+      <legend>Logo (shown at the top of the showcase)</legend>
+      <div class="media">
+        <div class="preview logo-preview" id="logoPreview">No logo</div>
+        <div class="controls">
+          <div class="line">
+            <button type="button" class="small" id="logoPick">Choose logo…</button>
+            <button type="button" class="small danger" id="logoClear">Remove</button>
+            <input type="file" id="logoFile" accept="image/*" hidden>
+          </div>
+          <div class="hint">PNG with a transparent background works best.</div>
+        </div>
+      </div>
+      <label class="check" style="margin-top:10px"><input type="checkbox" id="sShowTitle"> Show the name “Game Makers Myanmar” next to the logo</label>
+    </fieldset>
+    <fieldset>
+      <legend>Colours</legend>
+      <div class="colors">
+        <label class="color">Accent <input type="color" id="sAccent"></label>
+        <label class="color">Gradient end <input type="color" id="sAccent2"></label>
+        <label class="color">Background <input type="color" id="sBg"></label>
+        <button type="button" class="small" id="fromLogo">Use colours from logo</button>
+        <button type="button" class="small" id="resetColors">Reset</button>
+      </div>
+      <div class="theme-preview" id="themePreview">
+        <strong>Game name</strong>
+        <span class="tp-chip">All 3</span>
+        <span class="tp-muted">Preview of the showcase colours</span>
+      </div>
+    </fieldset>
+    <div class="err" id="siteErr" hidden></div>
+    <div class="form-actions">
+      <span class="progress" id="siteProgress"></span>
+      <button type="button" id="siteCancel">Cancel</button>
+      <button type="submit" class="primary" id="siteSave">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Admins -->
+<dialog id="adminsDlg">
+  <form id="adminsForm" novalidate>
+    <h2>Admins</h2>
+    <p class="hint" style="margin:0">People who can sign in here with Google and change the showcase.</p>
+    <div class="admin-list" id="adminList"></div>
+    <div class="add-admin">
+      <input type="email" id="newAdmin" placeholder="name@gmail.com" autocomplete="off">
+      <button type="submit" class="primary">Add</button>
+    </div>
+    <div class="err" id="adminsErr" hidden></div>
+    <div class="form-actions"><button type="button" id="adminsClose">Close</button></div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="../firebase-config.js"></script>
+<script src="../games.js"></script>
+<script src="../settings.js"></script>
+<script src="colours.js"></script>
+<script type="module" src="admin.js"></script>
+</body>
+</html>
