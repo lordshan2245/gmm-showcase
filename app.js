@@ -28,6 +28,17 @@
     return typeof url === 'string' && /^https?:\/\//i.test(url.trim()) ? url.trim() : '';
   }
 
+  // Per-platform links: { PC: url, Mobile: url, Web: url }. Older entries had a single "link".
+  function linksOf(game) {
+    var out = {};
+    var raw = game.links && typeof game.links === 'object' ? game.links : null;
+    (game.platforms || []).forEach(function (p) {
+      var url = safeLink(raw ? raw[p] : game.link);
+      if (url) out[p] = url;
+    });
+    return out;
+  }
+
   function youtubeId(url) {
     var m = /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/i.exec(url || '');
     return m ? m[1] : '';
@@ -94,7 +105,9 @@
   // ---------- Cards ----------
   function buildCard(game) {
     var card = el('article', 'card');
-    var link = safeLink(game.link);
+    var links = linksOf(game);
+    // The icon opens the quickest way to play: browser first, then PC, then mobile.
+    var link = links.Web || links.PC || links.Mobile || '';
 
     var icon = el('a', 'icon');
     icon.setAttribute('aria-label', (game.name || 'Game') + (link ? ' — play' : ''));
@@ -122,12 +135,14 @@
 
     // Hover (mouse) and keyboard focus start the trailer after a short beat,
     // so sweeping the cursor across the grid doesn't flicker.
-    icon.addEventListener('pointerenter', function (e) {
+    // The whole card is the hover area, so the trailer keeps playing while the
+    // cursor moves from the icon down to the platform links.
+    card.addEventListener('pointerenter', function (e) {
       if (e.pointerType !== 'mouse') return;
       clearTimeout(showTimer);
       showTimer = setTimeout(function () { startTrailer(game, card); }, 140);
     });
-    icon.addEventListener('pointerleave', function (e) {
+    card.addEventListener('pointerleave', function (e) {
       if (e.pointerType !== 'mouse') return;
       stopTrailer();
     });
@@ -146,20 +161,26 @@
 
     card.appendChild(icon);
     card.appendChild(el('h2', '', game.name || 'Untitled'));
+    if (game.genre) card.appendChild(el('p', 'genre', game.genre));
 
+    // Platform tags double as the playable links: a platform with a link is clickable.
     var tags = el('ul', 'tags');
     PLATFORMS.forEach(function (p) {
-      if ((game.platforms || []).indexOf(p) !== -1) tags.appendChild(el('li', 'tag ' + p.toLowerCase(), p));
+      if ((game.platforms || []).indexOf(p) === -1) return;
+      var li = el('li');
+      if (links[p]) {
+        var a = el('a', 'tag link ' + p.toLowerCase(), p + ' ↗');
+        a.href = links[p];
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.setAttribute('aria-label', 'Play ' + (game.name || 'game') + ' on ' + p);
+        li.appendChild(a);
+      } else {
+        li.appendChild(el('span', 'tag ' + p.toLowerCase(), p));
+      }
+      tags.appendChild(li);
     });
     card.appendChild(tags);
-
-    var play = el('a', 'play' + (link ? '' : ' disabled'), link ? '▶  Play' : 'Coming soon');
-    if (link) {
-      play.href = link;
-      play.target = '_blank';
-      play.rel = 'noopener';
-    }
-    card.appendChild(play);
     return card;
   }
 
