@@ -145,8 +145,15 @@ async function loadAll() {
   games.sort((a, b) => (a.order || 0) - (b.order || 0));
   site = siteDoc.exists() ? siteDoc.data() : {};
   const oldGames = Array.isArray(window.GAMES) ? window.GAMES : [];
-  $('importBox').hidden = !(games.length === 0 && oldGames.length > 0);
   render();
+  // First time an admin opens the panel: bring the games saved with the site into the database
+  // automatically. The import also writes config/site, so this only ever happens once.
+  if (games.length === 0 && !siteDoc.exists() && oldGames.length > 0) {
+    $('importBox').hidden = false;
+    await importOld();
+  } else {
+    $('importBox').hidden = true;
+  }
 }
 
 // ---------- Game list ----------
@@ -454,7 +461,9 @@ $('adminsForm').addEventListener('submit', async (ev) => {
 });
 
 // ---------- One-time import of the games saved with the site ----------
-$('importBtn').onclick = async () => {
+$('importBtn').onclick = () => importOld();
+
+async function importOld() {
   const old = Array.isArray(window.GAMES) ? window.GAMES : [];
   const oldSite = window.SITE && typeof window.SITE === 'object' ? window.SITE : {};
   $('importBtn').disabled = true;
