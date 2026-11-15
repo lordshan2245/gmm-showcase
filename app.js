@@ -76,19 +76,50 @@
     } else {
       frame.hidden = true;
       video.hidden = false;
-      video.src = game.trailer;
-      video.currentTime = 0;
-      video.muted = !(soundOn && unlocked);
-      var p = video.play();
-      if (p && p.catch) p.catch(function () {
-        // The browser refused to start with sound: play silently instead.
-        video.muted = true;
-        var q = video.play();
-        if (q && q.catch) q.catch(function () {});
-      });
       document.body.classList.add('trailer-on');
+      var uploaded = /^db:(.+)$/.exec(game.trailer);
+      var drive = driveFileId(game.trailer);
+      if (uploaded) {
+        // A video uploaded through the admin panel: fetch it from the database (kept in memory after the first time).
+        if (!window.GMM_CLOUD) { nowName.textContent = (game.name || '') + ' — trailer unavailable'; return; }
+        nowName.textContent = (game.name || '') + ' — loading trailer…';
+        window.GMM_CLOUD.loadVideo(uploaded[1]).then(function (url) {
+          if (currentId !== game.id) return;
+          nowName.textContent = game.name || '';
+          playFile(url);
+        }).catch(function () {
+          if (currentId === game.id) nowName.textContent = (game.name || '') + ' — trailer could not be loaded';
+        });
+      } else if (drive) {
+        video.onerror = function () {
+          if (currentId === game.id) nowName.textContent = (game.name || '') + ' — Google Drive would not play this video';
+        };
+        playFile('https://drive.google.com/uc?export=download&id=' + drive);
+      } else {
+        playFile(game.trailer);
+      }
     }
     updateSoundUi();
+  }
+
+  function playFile(url) {
+    video.src = url;
+    video.currentTime = 0;
+    video.muted = !(soundOn && unlocked);
+    var p = video.play();
+    if (p && p.catch) p.catch(function () {
+      // The browser refused to start with sound: play silently instead.
+      video.muted = true;
+      var q = video.play();
+      if (q && q.catch) q.catch(function () {});
+    });
+  }
+
+  // Google Drive share links: .../file/d/<id>/view, open?id=<id>, uc?id=<id>
+  function driveFileId(url) {
+    if (!/(^|\/\/)(drive|docs)\.google\.com\//i.test(url || '')) return '';
+    var m = /\/file\/d\/([\w-]{20,})/.exec(url) || /[?&]id=([\w-]{20,})/.exec(url);
+    return m ? m[1] : '';
   }
 
   // ---------- Sound ----------
@@ -140,6 +171,7 @@
     currentId = null;
     var active = grid.querySelector('.card.active');
     if (active) active.classList.remove('active');
+    video.onerror = null;
     video.pause();
     video.removeAttribute('src');
     video.load();

@@ -5,7 +5,7 @@ import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
-  getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc, writeBatch,
+  getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc, writeBatch, Bytes,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const $ = (id) => document.getElementById(id);
@@ -235,6 +235,8 @@ async function remove(g) {
   if (!confirm('Delete “' + (g.name || 'Untitled') + '” from the showcase?')) return;
   try {
     await deleteDoc(doc(db, 'games', g.id));
+    const vid = /^db:(.+)$/.exec(g.trailer || '');
+    if (vid) deleteVideo(vid[1]);
     games = games.filter((x) => x.id !== g.id);
     render();
     toast('Game deleted');
@@ -246,6 +248,56 @@ async function remove(g) {
 // ---------- Game form ----------
 let editingId = null;
 let icon = { data: '', file: null };
+// Uploaded trailer: id = one already stored in the database, file = a newly chosen one waiting to upload.
+let video = { id: '', file: null };
+
+const MAX_VIDEO_MB = 20;
+const CHUNK_BYTES = 950000; // a database entry holds at most 1 MB
+
+function refreshVideo() {
+  const has = !!(video.file || video.id);
+  $('videoClear').hidden = !has;
+  $('videoName').textContent = video.file
+    ? video.file.name + ' (' + (video.file.size / 1048576).toFixed(1) + ' MB) — uploads when you press Save'
+    : (video.id ? 'Uploaded video in use' : '');
+}
+
+// Stores the video as numbered pieces under videos/<id>/chunks, then a small summary entry.
+async function uploadVideo(file, onProgress) {
+  const id = doc(collection(db, 'videos')).id;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const count = Math.ceil(bytes.length / CHUNK_BYTES);
+  try {
+    for (let i = 0; i < count; i++) {
+      const part = bytes.subarray(i * CHUNK_BYTES, (i + 1) * CHUNK_BYTES);
+      await setDoc(doc(db, 'videos', id, 'chunks', String(i).padStart(4, '0')), { data: Bytes.fromUint8Array(part) });
+      onProgress((i + 1) / count);
+    }
+    await setDoc(doc(db, 'videos', id), {
+      name: file.name, type: file.type || 'video/mp4', size: bytes.length, chunks: count, at: Date.now(),
+    });
+  } catch (err) {
+    // Don't leave half an upload behind.
+    for (let i = 0; i < count; i++) {
+      deleteDoc(doc(db, 'videos', id, 'chunks', String(i).padStart(4, '0'))).catch(() => {});
+    }
+    throw err;
+  }
+  return id;
+}
+
+async function deleteVideo(id) {
+  try {
+    const meta = await getDoc(doc(db, 'videos', id));
+    const count = meta.exists() ? (meta.data().chunks || 0) : 0;
+    for (let i = 0; i < count; i++) {
+      await deleteDoc(doc(db, 'videos', id, 'chunks', String(i).padStart(4, '0')));
+    }
+    await deleteDoc(doc(db, 'videos', id));
+  } catch (err) {
+    console.warn('Could not remove old video', id, err);
+  }
+}
 
 function refreshIcon() {
   const ip = $('iconPreview');
@@ -266,7 +318,12 @@ function openForm(g) {
     row.querySelector('input[data-link]').value = c.checked ? (links[c.value] || '') : '';
   });
   icon = { data: g ? (g.icon || '') : '', file: null };
-  $('fTrailer').value = g ? (g.trailer || '') : '';
+  const savedTrailer = g ? (g.trailer || '') : '';
+  const savedVideo = /^db:(.+)$/.exec(savedTrailer);
+  video = { id: savedVideo ? savedVideo[1] : '', file: null };
+  $('fTrailer').value = savedVideo ? '' : savedTrailer;
+  $('videoFile').value = '';
+  refreshVideo();
   $('iconFile').value = '';
   $('formErr').hidden = true;
   $('progress').textContent = '';
@@ -290,6 +347,28 @@ $('iconFile').onchange = async function () {
     refreshIcon();
   } catch (err) { fail(err.message); }
 };
+$('videoPick').onclick = () => $('videoFile').click();
+$('videoFile').onchange = function () {
+  const f = this.files[0];
+  if (!f) return;
+  if (!/\.(mp4|webm)$/i.test(f.name)) { this.value = ''; return fail('Please choose an MP4 or WebM video.'); }
+  if (f.size > MAX_VIDEO_MB * 1048576) {
+    this.value = '';
+    return fail('That video is ' + Math.round(f.size / 1048576) + ' MB. Uploads must be under ' + MAX_VIDEO_MB +
+      ' MB — export a shorter or 720p clip, or put it on YouTube or Google Drive and paste the link.');
+  }
+  $('formErr').hidden = true;
+  video.file = f;
+  $('fTrailer').value = '';
+  refreshVideo();
+};
+$('videoClear').onclick = () => { video = { id: '', file: null }; $('videoFile').value = ''; refreshVideo(); };
+// A pasted link replaces an uploaded video.
+$('fTrailer').addEventListener('input', () => {
+  if ($('fTrailer').value.trim() && (video.file || video.id)) {
+    video = { id: '', file: null }; $('videoFile').value = ''; refreshVideo();
+  }
+});
 document.querySelectorAll('.plat input[data-link]').forEach((inp) => {
   inp.addEventListener('input', () => {
     if (inp.value.trim()) inp.closest('.plat').querySelector('input[type=checkbox]').checked = true;
@@ -300,9 +379,9 @@ $('form').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   $('formErr').hidden = true;
   const name = $('fName').value.trim();
-  const trailer = $('fTrailer').value.trim();
+  const trailerUrl = $('fTrailer').value.trim();
   if (!name) return fail('Please enter the game name.');
-  if (trailer && !isHttp(trailer)) return fail('The trailer link must start with http:// or https://');
+  if (trailerUrl && !isHttp(trailerUrl)) return fail('The trailer link must start with http:// or https://');
   const platforms = [];
   const links = {};
   let badLink = '';
@@ -323,8 +402,20 @@ $('form').addEventListener('submit', async (ev) => {
     const existing = editingId ? games.find((g) => g.id === editingId) : null;
     const ref = existing ? doc(db, 'games', existing.id) : doc(collection(db, 'games'));
     const order = existing ? (existing.order || 0) : games.reduce((m, g) => Math.max(m, (g.order || 0) + 1), 0);
+    let trailer = trailerUrl;
+    if (video.file) {
+      $('progress').textContent = 'Uploading video…';
+      const id = await uploadVideo(video.file, (f) => { $('progress').textContent = 'Uploading video ' + Math.round(f * 100) + '%'; });
+      trailer = 'db:' + id;
+      $('progress').textContent = 'Saving…';
+    } else if (!trailerUrl && video.id) {
+      trailer = 'db:' + video.id;
+    }
     const data = { name, genre: $('fGenre').value.trim(), icon: icon.data, platforms, links, trailer, order };
     await setDoc(ref, data);
+    // Remove the previous uploaded video if this game no longer uses it.
+    const before = existing ? /^db:(.+)$/.exec(existing.trailer || '') : null;
+    if (before && 'db:' + before[1] !== trailer) deleteVideo(before[1]);
     const saved = Object.assign({ id: ref.id }, data);
     games = existing ? games.map((g) => (g.id === existing.id ? saved : g)) : games.concat([saved]);
     render();

@@ -105,9 +105,19 @@
       </div>
     </fieldset>
 
-    <label class="field">Trailer (YouTube link — plays in the background on hover)
-      <input type="url" id="fTrailer" placeholder="https://youtu.be/…" autocomplete="off">
-    </label>
+    <fieldset>
+      <legend>Trailer (plays in the background on hover)</legend>
+      <div class="controls" style="display:flex;flex-direction:column;gap:8px">
+        <input type="url" id="fTrailer" placeholder="Paste a YouTube or Google Drive link" autocomplete="off">
+        <div class="line" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button type="button" class="small" id="videoPick">…or upload a video from this computer</button>
+          <button type="button" class="small danger" id="videoClear" hidden>Remove video</button>
+          <input type="file" id="videoFile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
+        </div>
+        <div class="filename" id="videoName"></div>
+        <div class="hint">YouTube works best. Google Drive: set sharing to “Anyone with the link”, files under 100 MB. Uploads: MP4 or WebM up to 20 MB.</div>
+      </div>
+    </fieldset>
 
     <div class="err" id="formErr" hidden></div>
     <div class="form-actions">

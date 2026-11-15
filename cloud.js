@@ -9,6 +9,32 @@ if (cfg) {
       import(base + 'firebase-firestore-lite.js'),
     ]);
     const db = fs.getFirestore(initializeApp(cfg));
+
+    // Uploaded trailers are stored as numbered pieces (a database entry holds at most 1 MB).
+    // They are fetched only when a visitor first hovers the game, then kept in memory.
+    const videoUrls = new Map();
+    window.GMM_CLOUD = {
+      loadVideo(id) {
+        if (!videoUrls.has(id)) {
+          const job = (async () => {
+            const meta = await fs.getDoc(fs.doc(db, 'videos', id));
+            if (!meta.exists()) throw new Error('Video not found');
+            const info = meta.data();
+            const parts = await Promise.all(Array.from({ length: info.chunks }, (_, i) =>
+              fs.getDoc(fs.doc(db, 'videos', id, 'chunks', String(i).padStart(4, '0')))));
+            const bytes = parts.map((p) => {
+              if (!p.exists()) throw new Error('Video is incomplete');
+              return p.data().data.toUint8Array();
+            });
+            return URL.createObjectURL(new Blob(bytes, { type: info.type || 'video/mp4' }));
+          })();
+          job.catch(() => videoUrls.delete(id));
+          videoUrls.set(id, job);
+        }
+        return videoUrls.get(id);
+      },
+    };
+
     const [gameDocs, siteDoc] = await Promise.all([
       fs.getDocs(fs.collection(db, 'games')),
       fs.getDoc(fs.doc(db, 'config', 'site')),
